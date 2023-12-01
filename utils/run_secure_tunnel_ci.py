@@ -49,8 +49,6 @@ def getSecretsAndLaunch(parsed_commands):
 
 
 def launch_samples(parsed_commands, tunnel_data):
-    exit_code = 0
-
     # Right now secure tunneling is only in C++, so we only support launching the sample in the C++ way
     launch_arguments_destination = [
         "--test", "--signing-region", parsed_commands.sample_region, "--access_token", tunnel_data["destinationAccessToken"]]
@@ -69,8 +67,7 @@ def launch_samples(parsed_commands, tunnel_data):
     # Once finished, stop the destination run
     destination_run.kill()
 
-    # finish!
-    return exit_code
+    return 0
 
 
 def main():

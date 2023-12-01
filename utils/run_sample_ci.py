@@ -12,11 +12,7 @@ import json
 import boto3  # - for launching sample
 
 current_folder = os.path.dirname(pathlib.Path(__file__).resolve())
-if sys.platform == "win32" or sys.platform == "cygwin":
-    current_folder += "\\"
-else:
-    current_folder += "/"
-
+current_folder += "\\" if sys.platform in ["win32", "cygwin"] else "/"
 config_json = None
 config_json_arguments_list = []
 
@@ -57,7 +53,6 @@ def setup_json_arguments_list(parsed_commands):
                         print ("ERROR with PKCS11!")
                         return pkcs11_result
 
-            # Windows 10 certificate store data?
             elif 'windows_cert_certificate' in argument and 'windows_cert_certificate_path' in argument \
                 and 'windows_cert_key' in argument and 'windows_cert_key_path' in argument != None \
                 and 'windows_cert_pfx_key_path' in argument != None:
@@ -77,16 +72,14 @@ def setup_json_arguments_list(parsed_commands):
                     str(current_folder) + argument['windows_cert_pfx_key_path'])
                 config_json_arguments_list.append(certificate_path)
 
-            # Raw data? just add it directly!
             elif 'data' in argument:
                 tmp_value = argument['data']
                 if isinstance(tmp_value, str) and 'input_uuid' in parsed_commands:
                     if ("$INPUT_UUID" in tmp_value):
                         tmp_value = tmp_value.replace("$INPUT_UUID", parsed_commands.input_uuid)
-                if (tmp_value != None and tmp_value != ""):
+                if tmp_value not in [None, ""]:
                     config_json_arguments_list.append(tmp_value)
 
-            # None of the above? Just print an error
             else:
                 print ("ERROR - unknown or missing argument value!")
 
@@ -112,7 +105,7 @@ def make_windows_pfx_file(certificate_file_path, private_key_path, pfx_file_path
     global pfx_certificate_store_location
     global pfx_password
 
-    if sys.platform == "win32" or sys.platform == "cygwin":
+    if sys.platform in ["win32", "cygwin"]:
         if os.path.isfile(certificate_file_path) != True:
             print (certificate_file_path)
             print("ERROR: Certificate file not found!")
@@ -127,11 +120,9 @@ def make_windows_pfx_file(certificate_file_path, private_key_path, pfx_file_path
 
         # Make a key copy
         copy_path = os.path.splitext(certificate_file_path)
-        with open(copy_path[0] + ".key", 'w') as file:
-            key_file = open(private_key_path)
-            file.write(key_file.read())
-            key_file.close()
-
+        with open(f"{copy_path[0]}.key", 'w') as file:
+            with open(private_key_path) as key_file:
+                file.write(key_file.read())
         # Make a PFX file
         arguments = ["certutil",  "-mergePFX", certificate_file_path, pfx_file_path]
         certutil_run = subprocess.run(args=arguments, shell=True, input=f"{pfx_password}\n{pfx_password}", encoding='ascii')
@@ -142,8 +133,8 @@ def make_windows_pfx_file(certificate_file_path, private_key_path, pfx_file_path
             print ("PFX file created successfully")
 
         # Remove the temporary key copy
-        if os.path.isfile(copy_path[0] + ".key"):
-            os.remove(copy_path[0] + ".key")
+        if os.path.isfile(f"{copy_path[0]}.key"):
+            os.remove(f"{copy_path[0]}.key")
 
         # Import the PFX into the Windows Certificate Store
         # (Passing '$mypwd' is required even though it is empty and our certificate has no password. It fails CI otherwise)
@@ -165,7 +156,7 @@ def make_windows_pfx_file(certificate_file_path, private_key_path, pfx_file_path
         import_pfx_output = import_pfx_output.replace("\\r", " ")
         import_pfx_output = import_pfx_output.replace("\\n", "\n")
         for i in range(0, len(import_pfx_output)):
-            if (import_pfx_output[i] == " " or import_pfx_output[i] == "\n"):
+            if import_pfx_output[i] in [" ", "\n"]:
                 if (len(current_str) == 40):
                     thumbprint = current_str
                     break
@@ -198,8 +189,12 @@ def setup_sample(parsed_commands):
     config_json = json.loads(json_file_data)
 
     # Make sure required parameters are all there
-    if not 'language' in config_json or not 'sample_file' in config_json \
-       or not 'sample_region' in config_json or not 'sample_main_class' in config_json:
+    if (
+        'language' not in config_json
+        or 'sample_file' not in config_json
+        or 'sample_region' not in config_json
+        or 'sample_main_class' not in config_json
+    ):
         return -1
 
     # Preprocess sample arguments (get secret data, etc)
@@ -246,7 +241,7 @@ def launch_sample():
     global config_json
     global config_json_arguments_list
 
-    if (config_json == None):
+    if config_json is None:
         print ("No configuration JSON file data found!")
         return -1
 
@@ -264,18 +259,20 @@ def launch_sample():
             if (i+1 < len(config_json_arguments_list)):
                 arguments_as_string += " "
 
-        arguments = ["mvn", "compile", "exec:java"]
-        arguments.append("-pl")
-        arguments.append(config_json['sample_file'])
-        arguments.append("-Dexec.mainClass=" + config_json['sample_main_class'])
-        arguments.append("-Daws.crt.ci=True")
-
+        arguments = [
+            "mvn",
+            "compile",
+            "exec:java",
+            "-pl",
+            config_json['sample_file'],
+            "-Dexec.mainClass=" + config_json['sample_main_class'],
+            "-Daws.crt.ci=True",
+        ]
         # We have to do this as a string, unfortunately, due to how -Dexec.args= works...
         argument_string = subprocess.list2cmdline(arguments) + " -Dexec.args=\"" + arguments_as_string + "\""
         sample_return = subprocess.run(argument_string, shell=True)
         exit_code = sample_return.returncode
 
-    # C++
     elif (config_json['language'] == "CPP"):
         try:
             sample_return = subprocess.run(
@@ -299,12 +296,12 @@ def launch_sample():
         config_json_arguments_list.append("true")
 
         sample_return_one = None
-        if sys.platform == "win32" or sys.platform == "cygwin":
+        if sys.platform in ["win32", "cygwin"]:
             sample_return_one = subprocess.run(args=["npm", "install"], shell=True)
         else:
             sample_return_one = subprocess.run(args=["npm", "install"])
 
-        if (sample_return_one == None or sample_return_one.returncode != 0):
+        if sample_return_one is None or sample_return_one.returncode != 0:
             exit_code = sample_return_one.returncode
         else:
             sample_return_two = None
@@ -314,18 +311,14 @@ def launch_sample():
             else:
                 arguments = ["node", "dist/index.js"]
 
-            if sys.platform == "win32" or sys.platform == "cygwin":
+            if sys.platform in ["win32", "cygwin"]:
                 sample_return_two = subprocess.run(
                     args=arguments + config_json_arguments_list, shell=True)
             else:
                 sample_return_two = subprocess.run(
                     args=arguments + config_json_arguments_list)
 
-            if (sample_return_two != None):
-                exit_code = sample_return_two.returncode
-            else:
-                exit_code = 1
-
+            exit_code = sample_return_two.returncode if (sample_return_two != None) else 1
     cleanup_sample()
     return exit_code
 

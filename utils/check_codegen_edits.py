@@ -51,8 +51,7 @@ def main():
         ignore = False
         if not os.path.isfile(filepath):
             ignore = True
-        if any([fnmatch.fnmatch(filepath, pat)
-                for pat in IGNORE_PATTERNS]):
+        if any(fnmatch.fnmatch(filepath, pat) for pat in IGNORE_PATTERNS):
             ignore = True
         if not ignore:
             with open(filepath) as f:

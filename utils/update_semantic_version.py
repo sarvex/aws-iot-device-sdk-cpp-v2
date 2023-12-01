@@ -32,7 +32,7 @@ def main():
             i_version_tuple[1] = int(i_version_tuple[1])
             i_version_tuple[2] = int(i_version_tuple[2])
 
-            if (highest == None):
+            if highest is None:
                 highest = i_version_tuple
                 continue
             else:

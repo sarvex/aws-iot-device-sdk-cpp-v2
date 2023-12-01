@@ -14,6 +14,7 @@ aws iot create-provisioning-claim --template-name <TemplateName> | python3 parse
 
 """
 
+
 import argparse
 import json
 import os
@@ -36,25 +37,22 @@ if __name__ == '__main__':
 
     body = json.load(sys.stdin)
 
-    raw_pem = body['certificatePem']
-    if raw_pem:
+    if raw_pem := body['certificatePem']:
         pem = re.sub("\\n", "\n", raw_pem)
-        pem_filename = os.path.join(path, filename + ".cert.pem")
+        pem_filename = os.path.join(path, f"{filename}.cert.pem")
         with open(pem_filename, 'w') as file:
             file.write(pem)
 
     try:
-        raw_pub_key = body['keyPair']['PublicKey']
-        if raw_pub_key:
+        if raw_pub_key := body['keyPair']['PublicKey']:
             pub_key = re.sub("\\n", "\n", raw_pub_key)
-            pub_key_filename = os.path.join(path, filename + ".public.key")
+            pub_key_filename = os.path.join(path, f"{filename}.public.key")
             with open(pub_key_filename, 'w') as file:
                 file.write(pub_key)
 
-        raw_private_key = body['keyPair']['PrivateKey']
-        if raw_private_key:
+        if raw_private_key := body['keyPair']['PrivateKey']:
             private_key = re.sub("\\n", "\n", raw_private_key)
-            private_key_filename = os.path.join(path, filename + ".private.key")
+            private_key_filename = os.path.join(path, f"{filename}.private.key")
             with open(private_key_filename, 'w') as file:
                 file.write(private_key)
     except KeyError:

@@ -179,7 +179,7 @@ def parseXML(filepath, dump_xml_on_error):
 
     # If we have AppVerifier entries, then a test or tests failed, so process the data,
     # print it, and then return with an error to stop the GitHub action from passing
-    if (len(app_verifier_entries) > 0):
+    if app_verifier_entries:
         print("WARNING: AppVerifier entries found:")
         severity_error_found = False
 
@@ -232,8 +232,8 @@ def getErrorCodeMeaning(element_layer_name, element_code):
         if (element_code in layer_codes):
             return layer_codes[element_code]
         else:
-            return "Util-script unknown error: " + element_code + " for layer " + element_layer_name
-    return "Util-script unknown layer: " + element_layer_name + " and error code: " + element_code
+            return f"Util-script unknown error: {element_code} for layer {element_layer_name}"
+    return f"Util-script unknown layer: {element_layer_name} and error code: {element_code}"
 
 
 def booleanString(string):
