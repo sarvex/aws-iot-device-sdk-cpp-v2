@@ -40,10 +40,13 @@ class BuildSamples(Builder.Action):
 
         defender_samples = []
         # Linux only builds
-        if sys.platform == "linux" or sys.platform == "linux2":
-            defender_samples.append('samples/device_defender/basic_report')
-            defender_samples.append('samples/device_defender/mqtt5_basic_report')
-
+        if sys.platform in ["linux", "linux2"]:
+            defender_samples.extend(
+                (
+                    'samples/device_defender/basic_report',
+                    'samples/device_defender/mqtt5_basic_report',
+                )
+            )
         da_samples = [
             'deviceadvisor/tests/mqtt_connect',
             'deviceadvisor/tests/mqtt_publish',
@@ -79,13 +82,16 @@ class BuildSamples(Builder.Action):
 
         for sample_path in defender_samples:
             build_path = os.path.join('build', sample_path)
-            steps.append(['cmake',
-                          f'-B{build_path}',
-                          f'-H{sample_path}',
-                          f'-DCMAKE_PREFIX_PATH={env.install_dir}',
-                          '-DCMAKE_BUILD_TYPE=RelWithDebInfo'])
-            steps.append(['cmake',
-                          '--build', build_path,
-                          '--config', 'RelWithDebInfo'])
-
+            steps.extend(
+                (
+                    [
+                        'cmake',
+                        f'-B{build_path}',
+                        f'-H{sample_path}',
+                        f'-DCMAKE_PREFIX_PATH={env.install_dir}',
+                        '-DCMAKE_BUILD_TYPE=RelWithDebInfo',
+                    ],
+                    ['cmake', '--build', build_path, '--config', 'RelWithDebInfo'],
+                )
+            )
         return Builder.Script(steps)

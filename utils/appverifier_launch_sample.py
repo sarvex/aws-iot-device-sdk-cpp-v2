@@ -32,8 +32,8 @@ def launchSample(sample_file, sample_region, sample_secret_endpoint, sample_secr
     current_folder = str(current_folder).replace("appverifier_xml_util.py", "")
 
     print("Saving credentials to file...")
-    tmp_certificate_file_path = str(current_folder) + "tmp_certificate.pem"
-    tmp_private_key_path = str(current_folder) + "tmp_privatekey.pem.key"
+    tmp_certificate_file_path = f"{current_folder}tmp_certificate.pem"
+    tmp_private_key_path = f"{current_folder}tmp_privatekey.pem.key"
     with open(tmp_certificate_file_path, "w") as file:
         file.write(sample_certificate["SecretString"]) # lgtm [py/clear-text-storage-sensitive-data]
     with open(tmp_private_key_path, "w") as file:
@@ -41,17 +41,16 @@ def launchSample(sample_file, sample_region, sample_secret_endpoint, sample_secr
     print("Saved credentials to file...")
 
     print("Processing arguments...")
-    launch_arguments = []
-    launch_arguments.append("--endpoint")
-    launch_arguments.append(sample_endpoint)
-    launch_arguments.append("--cert")
-    launch_arguments.append(tmp_certificate_file_path)
-    launch_arguments.append("--key")
-    launch_arguments.append(tmp_private_key_path)
+    launch_arguments = [
+        "--endpoint",
+        sample_endpoint,
+        "--cert",
+        tmp_certificate_file_path,
+        "--key",
+        tmp_private_key_path,
+    ]
     sample_arguments_split = sample_arguments.split(" ")
-    for arg in sample_arguments_split:
-        launch_arguments.append(arg)
-
+    launch_arguments.extend(iter(sample_arguments_split))
     print("Running sample...")
     exit_code = 0
     sample_return = subprocess.run(
@@ -65,7 +64,7 @@ def launchSample(sample_file, sample_region, sample_secret_endpoint, sample_secr
     if (exit_code == 0):
         print("SUCCESS: Finished running sample! Exiting with success")
     else:
-        print("ERROR: Sample did not return success! Exit code " + str(exit_code))
+        print(f"ERROR: Sample did not return success! Exit code {str(exit_code)}")
     return exit_code
 
 
@@ -84,14 +83,22 @@ def unregisterAppVerifier(test_executable):
 
 
 def checkAppVerifierXML(test_executable, tmp_xml_file_path):
-    appverif_xml_dump_args = ["appverif", "-export", "log", "-for", test_executable, "-with", "to="+ tmp_xml_file_path]
+    appverif_xml_dump_args = [
+        "appverif",
+        "-export",
+        "log",
+        "-for",
+        test_executable,
+        "-with",
+        f"to={tmp_xml_file_path}",
+    ]
     print (f'Calling AppVerifier with: {subprocess.list2cmdline(appverif_xml_dump_args)}')
     # NOTE: Needs elevated permissions
     subprocess.run(args=appverif_xml_dump_args)
 
     xml_result = appverifier_xml.parseXML(tmp_xml_file_path, True)
     if (xml_result != 0):
-        print (f"ERROR: XML parse returned failure!")
+        print("ERROR: XML parse returned failure!")
     return xml_result
 
 

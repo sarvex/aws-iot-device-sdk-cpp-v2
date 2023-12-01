@@ -28,24 +28,24 @@ def process_logs(log_group, log_stream, thing_name):
         logGroupName=log_group,
         logStreamName=log_stream
     )
-    log_file = "DA_Log_CPP_" + thing_name + ".log"
-    f = open(log_file, 'w')
-    for event in response["events"]:
-        f.write(event['message'])
-    f.close()
-
+    log_file = f"DA_Log_CPP_{thing_name}.log"
+    with open(log_file, 'w') as f:
+        for event in response["events"]:
+            f.write(event['message'])
     try:
         secrets_client = boto3.client(
             "secretsmanager", region_name=os.environ["AWS_DEFAULT_REGION"])
         s3_bucket_name = secrets_client.get_secret_value(SecretId="ci/DeviceAdvisor/s3bucket")["SecretString"]
         s3.Bucket(s3_bucket_name).upload_file(log_file, log_file)
-        print("[Device Advisor] Device Advisor Log file uploaded to "+ log_file)
+        print(f"[Device Advisor] Device Advisor Log file uploaded to {log_file}")
 
     except Exception:
         print ("[Device Advisor] Error: could not store log in S3 bucket!")
 
     os.remove(log_file)
-    print("[Device Advisor] Issues on test " + test_name + ". Please check out the logs at "+thing_name+".log on S3.")
+    print(
+        f"[Device Advisor] Issues on test {test_name}. Please check out the logs at {thing_name}.log on S3."
+    )
 
 # Sleep for a random time
 def sleep_with_backoff(base, max):
@@ -73,11 +73,8 @@ MAXIMUM_CYCLE_COUNT = (3600 / BACKOFF_MAX)
 # Did Device Advisor fail a test? If so, this should be true
 did_at_least_one_test_fail = False
 
-# load test config
-f = open('deviceadvisor/script/DATestConfig.json')
-DATestConfig = json.load(f)
-f.close()
-
+with open('deviceadvisor/script/DATestConfig.json') as f:
+    DATestConfig = json.load(f)
 # create an temporary certificate/key file path
 certificate_path = os.path.join(os.getcwd(), 'certificate.pem.crt')
 key_path = os.path.join(os.getcwd(), 'private.pem.key')
@@ -92,7 +89,7 @@ test_result = {}
 for test_name in DATestConfig['tests']:
     ##############################################
     # create a test thing
-    thing_name = "DATest_" + str(uuid.uuid4())
+    thing_name = f"DATest_{str(uuid.uuid4())}"
     try:
         # create_thing_response:
         # {
@@ -107,7 +104,7 @@ for test_name in DATestConfig['tests']:
         os.environ["DA_THING_NAME"] = thing_name
 
     except Exception:
-        print("[Device Advisor] Error: Failed to create thing: " + thing_name)
+        print(f"[Device Advisor] Error: Failed to create thing: {thing_name}")
         exit(-1)
 
 
@@ -129,16 +126,10 @@ for test_name in DATestConfig['tests']:
         create_cert_response = client.create_keys_and_certificate(
             setAsActive=True
         )
-        # write certificate to file
-        f = open(certificate_path, "w")
-        f.write(create_cert_response['certificatePem'])
-        f.close()
-
-        # write private key to file
-        f = open(key_path, "w")
-        f.write(create_cert_response['keyPair']['PrivateKey'])
-        f.close()
-
+        with open(certificate_path, "w") as f:
+            f.write(create_cert_response['certificatePem'])
+        with open(key_path, "w") as f:
+            f.write(create_cert_response['keyPair']['PrivateKey'])
         # setup environment variable
         os.environ["DA_CERTI"] = certificate_path
         os.environ["DA_KEY"] = key_path
@@ -220,7 +211,7 @@ for test_name in DATestConfig['tests']:
         # 'suiteRunArn': 'string',
         # 'createdAt': datetime(2015, 1, 1)
         # }
-        print("[Device Advisor] Info: Start device advisor test: " + test_name)
+        print(f"[Device Advisor] Info: Start device advisor test: {test_name}")
         sleep_with_backoff(BACKOFF_BASE, BACKOFF_MAX)
         test_start_response = deviceAdvisor.start_suite_run(
             suiteDefinitionId=DATestConfig['test_suite_ids'][test_name],
@@ -258,7 +249,6 @@ for test_name in DATestConfig['tests']:
             test_result_responds['testResult']['groups'][0]['tests'][0]['status'] == 'PENDING'):
                 continue
 
-            # Start to run the test sample after the status turns into RUNNING
             elif (test_result_responds['status'] == 'RUNNING' and
             test_result_responds['testResult']['groups'][0]['tests'][0]['status'] == 'RUNNING'):
                 try:
@@ -269,12 +259,11 @@ for test_name in DATestConfig['tests']:
                         exe_path = os.path.join(exe_path, "RelWithDebInfo",DATestConfig['test_exe_path'][test_name])
                     else:
                         exe_path = os.path.join(exe_path, DATestConfig['test_exe_path'][test_name])
-                    print("start to run" + exe_path)
+                    print(f"start to run{exe_path}")
                     result = subprocess.run(exe_path, timeout = 60*2)
                 except:
                     continue
 
-            # If the test finalizing or store the test result
             elif (test_result_responds['status'] != 'RUNNING'):
                 test_result[test_name] = test_result_responds['status']
                 # If the test failed, upload the logs to S3 before clean up
@@ -290,7 +279,7 @@ for test_name in DATestConfig['tests']:
                 break
     except Exception:
         delete_thing_with_certi(thing_name, certificate_id ,certificate_arn )
-        print("[Device Advisor]Error: Failed to test: "+ test_name)
+        print(f"[Device Advisor]Error: Failed to test: {test_name}")
         did_at_least_one_test_fail = True
         sleep_with_backoff(BACKOFF_BASE, BACKOFF_MAX)
 
@@ -298,9 +287,8 @@ for test_name in DATestConfig['tests']:
 # print result and cleanup things
 print(test_result)
 failed = False
-for test in test_result:
-    if(test_result[test] != "PASS" and
-    test_result[test] != "PASS_WITH_WARNINGS"):
+for test, value in test_result.items():
+    if value != "PASS" and test_result[test] != "PASS_WITH_WARNINGS":
         print("[Device Advisor]Error: Test \"" + test + "\" Failed with status:" + test_result[test])
         failed = True
 if failed:

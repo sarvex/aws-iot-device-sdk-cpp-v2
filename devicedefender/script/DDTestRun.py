@@ -12,8 +12,9 @@ import sys
 
 # On something other than Linux? Pass the test instantly since Device Defender is only supported on Linux
 if platform.system() != "Linux":
-    print("[Device Defender]Info: Skipped Test - " + platform.system() +
-          " not supported (Only Linux supported currently)")
+    print(
+        f"[Device Defender]Info: Skipped Test - {platform.system()} not supported (Only Linux supported currently)"
+    )
     exit(0)
 
 ##############################################
@@ -28,7 +29,7 @@ def delete_thing_with_certi(thingName, certiId, certiArn):
     client.delete_certificate(certificateId=certiId, forceDelete=True)
     client.delete_thing(thingName=thingName)
 
-    print("[Device Defender]Info: Deleted thing with name: " + thingName)
+    print(f"[Device Defender]Info: Deleted thing with name: {thingName}")
 
 
 ##############################################
@@ -50,7 +51,7 @@ if len(sys.argv) > 1:
 
 ##############################################
 # create a test thing
-thing_name = "DDTest_" + str(uuid.uuid4())
+thing_name = f"DDTest_{str(uuid.uuid4())}"
 try:
     # create_thing_response:
     # {
@@ -66,7 +67,7 @@ try:
     client_made_thing = True
 
 except Exception as e:
-    print("[Device Defender]Error: Failed to create thing: " + thing_name)
+    print(f"[Device Defender]Error: Failed to create thing: {thing_name}")
     exit(-1)
 
 ##############################################
@@ -87,16 +88,10 @@ try:
     create_cert_response = client.create_keys_and_certificate(
         setAsActive=True
     )
-    # write certificate to file
-    f = open(certificate_path, "w")
-    f.write(create_cert_response['certificatePem'])
-    f.close()
-
-    # write private key to file
-    f = open(key_path, "w")
-    f.write(create_cert_response['keyPair']['PrivateKey'])
-    f.close()
-
+    with open(certificate_path, "w") as f:
+        f.write(create_cert_response['certificatePem'])
+    with open(key_path, "w") as f:
+        f.write(create_cert_response['keyPair']['PrivateKey'])
 except:
     client.delete_thing(thingName=thing_name)
     print("[Device Defender]Error: Failed to create certificate.")
@@ -115,7 +110,7 @@ try:
 
     # We only need a short section of the thing arn
     thing_arn_split = thing_arn.split(":")
-    thing_arn_short = thing_arn_split[0] + ':' + thing_arn_split[1] + ':' + thing_arn_split[2] + ':' + thing_arn_split[3] + ":" + thing_arn_split[4]
+    thing_arn_short = f'{thing_arn_split[0]}:{thing_arn_split[1]}:{thing_arn_split[2]}:{thing_arn_split[3]}:{thing_arn_split[4]}'
     policy_document_json = (
         '{'
         '"Version": "2012-10-17",'
@@ -138,15 +133,14 @@ try:
         '}'
     )
     create_policy_response = client.create_policy(
-        policyName=thing_name + "_policy",
-        policyDocument=policy_document_json
+        policyName=f"{thing_name}_policy", policyDocument=policy_document_json
     )
     client_made_policy = True
 except Exception as e:
     if client_made_thing:
         client.delete_thing(thingName=thing_name)
     if client_made_policy:
-        client.delete_policy(policyName=thing_name + "_policy")
+        client.delete_policy(policyName=f"{thing_name}_policy")
     print("[Device Defender]Error: Failed to create policy.")
     exit(-1)
 
@@ -160,8 +154,8 @@ try:
     print("[Device Defender]Info: Attach policy to certificate...")
     # attach policy to thing
     client.attach_policy(
-        policyName=thing_name + "_policy",
-        target=create_cert_response["certificateArn"]
+        policyName=f"{thing_name}_policy",
+        target=create_cert_response["certificateArn"],
     )
 
     print("[Device Defender]Info: Attach certificate to test thing...")
@@ -181,7 +175,7 @@ except:
         client.delete_thing(thingName=thing_name)
 
     if client_made_policy:
-        client.delete_policy(policyName=thing_name + "_policy")
+        client.delete_policy(policyName=f"{thing_name}_policy")
 
     print("[Device Defender]Error: Failed to attach certificate.")
     exit(-1)
@@ -244,7 +238,7 @@ try:
         # Windows has a different build folder structure, but this ONLY runs on Linux currently so we do not need to worry about it
         exe_path = os.path.join(exe_path, "basic-report")
 
-    print("[Device Defender]Info: Start to run: " + exe_path)
+    print(f"[Device Defender]Info: Start to run: {exe_path}")
     # The Device Defender sample will take ~1 minute to run even if successful
     # (since samples are sent every minute)
     arguments = [exe_path, "--endpoint", endpoint_response, "--cert",
@@ -260,7 +254,7 @@ try:
 
     # Delete
     delete_thing_with_certi(thing_name, certificate_id, certificate_arn)
-    client.delete_policy(policyName=thing_name + "_policy")
+    client.delete_policy(policyName=f"{thing_name}_policy")
 
 except Exception as e:
     # delete custom metrics we added
@@ -270,7 +264,7 @@ except Exception as e:
     if client_made_thing:
         delete_thing_with_certi(thing_name, certificate_id, certificate_arn)
     if client_made_policy:
-        client.delete_policy(policyName=thing_name + "_policy")
+        client.delete_policy(policyName=f"{thing_name}_policy")
 
     print("[Device Defender]Error: Failed to test: Basic Report")
     exit(-1)
